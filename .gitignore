@@ -1,0 +1,15 @@
+# Ignore Python bytecode files
+**/__pycache__/
+
+# Ignore virtual environment folder
+/rl_env/
+
+# Ignore DS_Store files (macOS)
+/.DS_Store
+
+# Ignore old or backup versions of the ReLearn file
+ReLearn_old.py
+
+# Ignore specific project subdirectories' __pycache__ folders
+/TicTacToeGame/__pycache__/
+/SnakeGame/__pycache__/
