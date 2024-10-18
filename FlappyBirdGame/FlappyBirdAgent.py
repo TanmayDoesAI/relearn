@@ -169,5 +169,5 @@ class FlappyBirdAgent:
         torch.save(self.policy_net.state_dict(), path)
 
     def load_model(self, path):
-        self.policy_net.load_state_dict(torch.load(path, map_location=self.device))
+        self.policy_net.load_state_dict(torch.load(path, map_location=self.device,weights_only=True))
         self.target_net.load_state_dict(self.policy_net.state_dict())

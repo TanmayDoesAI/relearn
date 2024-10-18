@@ -104,7 +104,7 @@ def run_snake_game():
     agent = Agent()
     # Load the model
     model = Linear_QNet(11, 256, 3)
-    model.load_state_dict(torch.load('Models/snake_model_200.pth'))
+    model.load_state_dict(torch.load('Models/snake_model_200.pth'), weights_only=True)
     model.eval()
     clock = pygame.time.Clock()
 
@@ -154,7 +154,7 @@ def run_flappybird_game():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     policy_net = DuelingDQN(state_size, action_size).to(device)
     if os.path.exists(model_path):
-        policy_net.load_state_dict(torch.load(model_path, map_location=device))
+        policy_net.load_state_dict(torch.load(model_path, map_location=device,weights_only=True))
     else:
         print(f"Model file {model_path} not found.")
         return

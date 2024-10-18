@@ -11,7 +11,7 @@ def evaluate(model_path, num_episodes=10):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     policy_net = DuelingDQN(state_size, action_size).to(device)
-    policy_net.load_state_dict(torch.load(model_path, map_location=device))
+    policy_net.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
     policy_net.eval()
 
     for episode in range(1, num_episodes + 1):
