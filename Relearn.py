@@ -104,7 +104,7 @@ def run_snake_game():
     agent = Agent()
     # Load the model
     model = Linear_QNet(11, 256, 3)
-    model.load_state_dict(torch.load('Models/snake_model_200.pth'), weights_only=True)
+    model.load_state_dict(torch.load('Models/snake_model_200.pth', weights_only=True))
     model.eval()
     clock = pygame.time.Clock()
 
