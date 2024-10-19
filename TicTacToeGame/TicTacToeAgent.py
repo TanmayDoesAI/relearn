@@ -1,11 +1,24 @@
 # TicTacToeAgent.py
+
+import sys
+import os
 import pickle
 from .TicTacToeModel import EMPTY, X, O
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 
 class TicTacToeAgent:
     def __init__(self, player='O'):
         self.player = O if player == 'O' else X
-        self.model = self.load_model('./Models/TicTacToe_model.pkl')
+        # Use resource_path to handle paths correctly in a packaged app
+        self.model = self.load_model(resource_path('Models/TicTacToe_model.pkl'))
 
     def load_model(self, path):
         with open(path, 'rb') as f:

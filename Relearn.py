@@ -5,6 +5,16 @@ import torch
 import pygame_gui
 import os
 
+# Helper function to get the correct path for resources when bundled by PyInstaller
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 # Import existing games
 from SnakeGame.SnakeGame import SnakeGame
 from SnakeGame.SnakeAgent import Agent
@@ -32,9 +42,9 @@ BG_COLOR = (30, 30, 30)  # Dark background for sleek look
 # Setup pygame_gui
 manager = pygame_gui.UIManager((SCREEN_WIDTH, SCREEN_HEIGHT))
 
-# Load Icons
+# Load Icons using resource_path to ensure compatibility with PyInstaller
 try:
-    snake_icon = pygame.image.load("Icons/Snake.png")
+    snake_icon = pygame.image.load(resource_path("Icons/Snake.png"))
     snake_icon = pygame.transform.scale(snake_icon, (150, 150))
 except:
     # Placeholder if image not found
@@ -42,7 +52,7 @@ except:
     snake_icon.fill((0, 255, 0))  # Green for Snake
 
 try:
-    tictactoe_icon = pygame.image.load("Icons/TicTacToe.png")
+    tictactoe_icon = pygame.image.load(resource_path("Icons/TicTacToe.png"))
     tictactoe_icon = pygame.transform.scale(tictactoe_icon, (150, 150))
 except:
     # Placeholder if image not found
@@ -50,7 +60,7 @@ except:
     tictactoe_icon.fill((255, 0, 0))  # Red for Tic Tac Toe
 
 try:
-    flappybird_icon = pygame.image.load("Icons/Flappy.png")
+    flappybird_icon = pygame.image.load(resource_path("Icons/Flappy.png"))
     flappybird_icon = pygame.transform.scale(flappybird_icon, (150, 150))
 except:
     # Placeholder if image not found
@@ -102,9 +112,9 @@ def run_snake_game():
     
     game = SnakeGame(w=640, h=480)
     agent = Agent()
-    # Load the model
+    # Load the model using resource_path
     model = Linear_QNet(11, 256, 3)
-    model.load_state_dict(torch.load('Models/snake_model_200.pth', weights_only=True))
+    model.load_state_dict(torch.load(resource_path('Models/snake_model_200.pth'), map_location=torch.device('cpu')))
     model.eval()
     clock = pygame.time.Clock()
 
@@ -146,7 +156,7 @@ def run_flappybird_game():
     global running_main_menu
     running_main_menu = False
     
-    model_path = 'Models/flappybird_dqn_final.pth'
+    model_path = resource_path('Models/flappybird_dqn_final.pth')
     env = FlappyBirdGame(render_mode=True)
     state_size = 4
     action_size = 2
@@ -154,7 +164,7 @@ def run_flappybird_game():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     policy_net = DuelingDQN(state_size, action_size).to(device)
     if os.path.exists(model_path):
-        policy_net.load_state_dict(torch.load(model_path, map_location=device,weights_only=True))
+        policy_net.load_state_dict(torch.load(model_path, map_location=device))
     else:
         print(f"Model file {model_path} not found.")
         return
@@ -221,4 +231,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

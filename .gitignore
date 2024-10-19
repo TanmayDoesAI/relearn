@@ -18,3 +18,7 @@ ReLearn_old.py
 FlappyBirdGame/flappybird_dqn_final.pth
 FlappyBirdGame/flappybird_dqn.pth
 
+
+# Ignore build and final app
+/dist/
+/ReLearnApp.spec
