@@ -1,4 +1,4 @@
-# relearn.py
+#Relearn.py
 import pygame
 import sys
 import torch
@@ -17,22 +17,17 @@ def resource_path(relative_path):
 
 # Import existing games
 from SnakeGame.SnakeGame import SnakeGame
-from SnakeGame.SnakeAgent import Agent
-from SnakeGame.SnakeModel import Linear_QNet
 from TicTacToeGame.TicTacToeGame import TicTacToeGame
-from TicTacToeGame.TicTacToeAgent import TicTacToeAgent
-
-# Import Flappy Bird game and agent
 from FlappyBirdGame.FlappyBirdGame import FlappyBirdGame
-from FlappyBirdGame.FlappyBirdAgent import DuelingDQN
+from FlappyBirdGame.FlappyBirdAgent import FlappyBirdAgent, DuelingDQN  # Updated import
 
 # Initialize Pygame
 pygame.init()
 
 # Set up the display
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+MAIN_SCREEN_WIDTH = 800
+MAIN_SCREEN_HEIGHT = 600
+screen = pygame.display.set_mode((MAIN_SCREEN_WIDTH, MAIN_SCREEN_HEIGHT))
 pygame.display.set_caption("ReLearn: AI Game Platform")
 
 # Colors
@@ -40,7 +35,7 @@ WHITE = (255, 255, 255)
 BG_COLOR = (30, 30, 30)  # Dark background for sleek look
 
 # Setup pygame_gui
-manager = pygame_gui.UIManager((SCREEN_WIDTH, SCREEN_HEIGHT))
+manager = pygame_gui.UIManager((MAIN_SCREEN_WIDTH, MAIN_SCREEN_HEIGHT))
 
 # Load Icons using resource_path to ensure compatibility with PyInstaller
 try:
@@ -97,7 +92,7 @@ def draw_main_menu():
     
     # Draw Titles
     title_surf = title_font.render("ReLearn: AI Game Platform", True, WHITE)
-    title_rect = title_surf.get_rect(center=(SCREEN_WIDTH//2, 100))
+    title_rect = title_surf.get_rect(center=(MAIN_SCREEN_WIDTH//2, 100))
     screen.blit(title_surf, title_rect)
     
     # Draw Icons
@@ -106,103 +101,91 @@ def draw_main_menu():
     screen.blit(flappybird_icon, (550, 200))
 
 def run_snake_game():
-    # Close the main menu UI
     global running_main_menu
     running_main_menu = False
-    
-    game = SnakeGame(w=640, h=480)
-    agent = Agent()
-    # Load the model using resource_path
-    model = Linear_QNet(11, 256, 3)
-    model.load_state_dict(torch.load(resource_path('Models/snake_model_200.pth'), map_location=torch.device('cpu')))
-    model.eval()
-    clock = pygame.time.Clock()
 
-    running_game = True
-    while running_game:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                running_game = False
+    # Set display for Snake Game
+    GAME_SCREEN_WIDTH = 640
+    GAME_SCREEN_HEIGHT = 480
+    pygame.display.set_mode((GAME_SCREEN_WIDTH, GAME_SCREEN_HEIGHT))
+    pygame.display.set_caption("Snake Game")
 
-        state_old = agent.get_state(game)
-        # Get model's prediction
-        state_old_tensor = torch.tensor(state_old, dtype=torch.float)
-        with torch.no_grad():
-            prediction = model(state_old_tensor)
-        # Convert prediction to action
-        final_move = [0, 0, 0]
-        move = torch.argmax(prediction).item()
-        final_move[move] = 1
+    game = SnakeGame(w=GAME_SCREEN_WIDTH, h=GAME_SCREEN_HEIGHT)
+    game.run()
 
-        reward, done, score = game.play_step(final_move)
-
-        clock.tick(20)
-
-        if done:
-            game.reset()
+    # After game ends, reset display to main menu's size and title
+    pygame.display.set_mode((MAIN_SCREEN_WIDTH, MAIN_SCREEN_HEIGHT))
+    pygame.display.set_caption("ReLearn: AI Game Platform")
+    running_main_menu = True
 
 def run_tictactoe_game():
-    # Close the main menu UI
     global running_main_menu
     running_main_menu = False
-    
-    game = TicTacToeGame()
+
+    # Set display for Tic Tac Toe Game
+    GAME_SCREEN_WIDTH = 600
+    GAME_SCREEN_HEIGHT = 700
+    pygame.display.set_mode((GAME_SCREEN_WIDTH, GAME_SCREEN_HEIGHT))
+    pygame.display.set_caption("Tic Tac Toe")
+
+    game = TicTacToeGame(screen=pygame.display.get_surface())
     game.run()
+
+    # After game ends, reset display to main menu's size and title
+    pygame.display.set_mode((MAIN_SCREEN_WIDTH, MAIN_SCREEN_HEIGHT))
+    pygame.display.set_caption("ReLearn: AI Game Platform")
+    running_main_menu = True
 
 def run_flappybird_game():
     global running_main_menu
     running_main_menu = False
-    
+
+    # Set display for Flappy Bird Game
+    GAME_SCREEN_WIDTH = 400
+    GAME_SCREEN_HEIGHT = 600
+    pygame.display.set_mode((GAME_SCREEN_WIDTH, GAME_SCREEN_HEIGHT))
+    pygame.display.set_caption("Flappy Bird RL")
+
+    game = FlappyBirdGame(screen=pygame.display.get_surface(), render_mode=True)
     model_path = resource_path('Models/flappybird_dqn_final.pth')
-    env = FlappyBirdGame(render_mode=True)
+    
     state_size = 4
     action_size = 2
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     policy_net = DuelingDQN(state_size, action_size).to(device)
     if os.path.exists(model_path):
+        # Corrected model loading code
         policy_net.load_state_dict(torch.load(model_path, map_location=device))
     else:
         print(f"Model file {model_path} not found.")
+        # Reset display to main menu's size and title
+        pygame.display.set_mode((MAIN_SCREEN_WIDTH, MAIN_SCREEN_HEIGHT))
+        pygame.display.set_caption("ReLearn: AI Game Platform")
+        running_main_menu = True
         return
+
     policy_net.eval()
+    
+    game.run(policy_net=policy_net)
 
-    running_game = True
-    while running_game:
-        state = env.reset()
-        done = False
-        while not done:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    env.close()
-                    pygame.quit()
-                    sys.exit()
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        running_game = False
-                        done = True
-            env.render()
-            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
-            with torch.no_grad():
-                q_values = policy_net(state_tensor)
-                action = q_values.argmax().item()
-            state, reward, done = env.step(action)
-        print(f"Game finished with score: {env.score}")
-        # Let the user play again unless they press escape
-        if not running_game:
-            break
-
-    env.close()
+    # After game ends, reset display to main menu's size and title
+    pygame.display.set_mode((MAIN_SCREEN_WIDTH, MAIN_SCREEN_HEIGHT))
+    pygame.display.set_caption("ReLearn: AI Game Platform")
+    running_main_menu = True
 
 def main():
     global running_main_menu
     running_main_menu = True
     clock = pygame.time.Clock()
 
-    while running_main_menu:
+    while True:
+        if running_main_menu:
+            # Reset display to main menu's size and title
+            pygame.display.set_mode((MAIN_SCREEN_WIDTH, MAIN_SCREEN_HEIGHT))
+            pygame.display.set_caption("ReLearn: AI Game Platform")
+            running_main_menu = False
+
         time_delta = clock.tick(60)/1000.0
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -213,13 +196,10 @@ def main():
                 if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
                     if event.ui_object_id == '#snake_button':
                         run_snake_game()
-                        running_main_menu = True  # Reopen main menu after game
                     elif event.ui_object_id == '#tictactoe_button':
                         run_tictactoe_game()
-                        running_main_menu = True  # Reopen main menu after game
                     elif event.ui_object_id == '#flappybird_button':
                         run_flappybird_game()
-                        running_main_menu = True  # Reopen main menu after game
 
             manager.process_events(event)
 

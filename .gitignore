@@ -22,3 +22,4 @@ FlappyBirdGame/flappybird_dqn.pth
 # Ignore build and final app
 /dist/
 /ReLearnApp.spec
+/build/

@@ -2,17 +2,16 @@
 import pygame
 import random
 import numpy as np
-
-# Initialize Pygame
-pygame.init()
-
+import torch
+from .FlappyBirdAgent import FlappyBirdAgent  # Correct Import
+import sys
 # Game Constants
 SCREEN_WIDTH = 400
 SCREEN_HEIGHT = 600
 PIPE_WIDTH = 80
 PIPE_GAP = 150
-BIRD_SIZE = 24  # Reduced from 30 to 24 for better hitbox accuracy
-FPS = 60  # Increased FPS for smoother gameplay
+BIRD_SIZE = 24
+FPS = 60
 GRAVITY = 0.5
 FLAP_STRENGTH = -10
 PIPE_SPEED = 5
@@ -23,9 +22,8 @@ BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 
 class FlappyBirdGame:
-    def __init__(self, render_mode=False):
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption("Flappy Bird RL")
+    def __init__(self, screen, render_mode=False):
+        self.screen = screen
         self.clock = pygame.time.Clock()
         self.render_mode = render_mode
         self.reset()
@@ -37,7 +35,6 @@ class FlappyBirdGame:
         self.score = 0
         self.done = False
         self.spawn_pipe()
-        # Initialize bird's Rect with reduced size
         self.bird_rect = pygame.Rect(50, int(self.bird_y), BIRD_SIZE, BIRD_SIZE)
         return self.get_state()
 
@@ -52,11 +49,9 @@ class FlappyBirdGame:
     def step(self, action):
         reward = 0.1  # Small reward for each frame alive
 
-        # Apply action
         if action == 1:
             self.bird_vel = FLAP_STRENGTH  # Flap
 
-        # Update bird
         self.bird_vel += GRAVITY  # Gravity
         self.bird_y += self.bird_vel
         self.bird_rect.y = int(self.bird_y)
@@ -135,19 +130,12 @@ class FlappyBirdGame:
         # Draw bird
         pygame.draw.rect(self.screen, BLACK, self.bird_rect)
 
-        # Draw hitbox for bird (for debugging)
-        # pygame.draw.rect(self.screen, (255, 0, 0), self.bird_rect, 2)  # Uncomment for debugging
-
         # Draw pipes
         for pipe in self.pipes:
             top_pipe_rect = pygame.Rect(pipe['x'], 0, PIPE_WIDTH, pipe['gap_y'])
             bottom_pipe_rect = pygame.Rect(pipe['x'], pipe['gap_y'] + PIPE_GAP, PIPE_WIDTH, SCREEN_HEIGHT - pipe['gap_y'] - PIPE_GAP)
             pygame.draw.rect(self.screen, GREEN, top_pipe_rect)
             pygame.draw.rect(self.screen, GREEN, bottom_pipe_rect)
-
-            # Draw hitboxes for pipes (for debugging)
-            # pygame.draw.rect(self.screen, (0, 0, 255), top_pipe_rect, 2)    # Uncomment for debugging
-            # pygame.draw.rect(self.screen, (0, 0, 255), bottom_pipe_rect, 2) # Uncomment for debugging
 
         # Draw score
         font = pygame.font.SysFont(None, 36)
@@ -157,24 +145,108 @@ class FlappyBirdGame:
         pygame.display.flip()
         self.clock.tick(FPS)
 
-    def close(self):
-        pygame.quit()
+    def display_home_screen(self):
+        self.screen.fill(WHITE)
+        title_font = pygame.font.SysFont('Arial', 48)
+        text_font = pygame.font.SysFont('Arial', 36)
 
-# For testing the game environment
-if __name__ == "__main__":
-    game = FlappyBirdGame(render_mode=True)
-    state = game.reset()
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+        title_text = title_font.render('Flappy Bird', True, BLACK)
+        self.screen.blit(title_text, (SCREEN_WIDTH / 2 - title_text.get_width() / 2, SCREEN_HEIGHT / 4))
 
-        action = random.choice([0, 1])  # Random action
-        state, reward, done = game.step(action)
-        game.render()
-        if done:
-            print("Game Over! Score:", game.score)
-            state = game.reset()
+        option1_text = text_font.render('1. Play Yourself', True, BLACK)
+        self.screen.blit(option1_text, (SCREEN_WIDTH / 2 - option1_text.get_width() / 2, SCREEN_HEIGHT / 2))
 
-    game.close()
+        option2_text = text_font.render('2. Watch AI Play', True, BLACK)
+        self.screen.blit(option2_text, (SCREEN_WIDTH / 2 - option2_text.get_width() / 2, SCREEN_HEIGHT / 2 + 50))
+
+        instruction_text = text_font.render('Press 1 or 2 to select', True, BLACK)
+        self.screen.blit(instruction_text, (SCREEN_WIDTH / 2 - instruction_text.get_width() / 2, SCREEN_HEIGHT * 3 / 4))
+
+        pygame.display.flip()
+
+    def run_player(self):
+        running_game = True
+        while running_game:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running_game = False
+                        return
+                    elif event.key == pygame.K_SPACE:
+                        self.bird_vel = FLAP_STRENGTH
+
+            # Player control
+            action = 1 if pygame.key.get_pressed()[pygame.K_SPACE] else 0
+            _, _, done = self.step(action)
+            self.render()
+
+            if done:
+                self.reset()
+
+    def run_ai(self, policy_net):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        running_game = True
+        while running_game:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running_game = False
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running_game = False
+                        return
+
+            state = self.get_state()
+            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
+
+            with torch.no_grad():
+                q_values = policy_net(state_tensor)
+                action = q_values.argmax().item()
+
+            _, _, done = self.step(action)
+            self.render()
+
+            if done:
+                self.reset()
+
+    def run(self, policy_net=None):
+        # Display home screen with options
+        self.display_home_screen()
+
+        running = True
+        mode = None
+
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+                        return
+                    elif event.key == pygame.K_1:
+                        mode = 'Player'
+                        running = False
+                    elif event.key == pygame.K_2:
+                        mode = 'AI'
+                        running = False
+            self.clock.tick(15)
+
+        self.reset()
+
+        if mode == 'AI' and policy_net:
+            self.run_ai(policy_net)
+        else:
+            self.run_player()
+
+        self.reset()
+
+        if mode == 'AI' and policy_net:
+            self.run_ai(policy_net)
+        else:
+            self.run_player()

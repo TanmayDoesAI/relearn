@@ -4,6 +4,11 @@ import random
 import numpy as np
 from enum import Enum
 from collections import namedtuple
+import sys
+import os
+import torch
+from .SnakeAgent import Agent
+from .SnakeModel import Linear_QNet
 
 # Initialize pygame font
 pygame.init()
@@ -25,6 +30,15 @@ RED = (200, 0, 0)
 BLUE1 = (0, 0, 255)
 BLUE2 = (0, 100, 255)
 BLACK = (0, 0, 0)
+
+# Helper function for resource paths
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 # Snake Game class
 class SnakeGame:
@@ -68,14 +82,10 @@ class SnakeGame:
         frame = np.transpose(frame, (1, 0, 2))
         return frame
 
-    def play_step(self, action):
+    def play_step(self, action=None):
         self.frame_iteration += 1
 
-        # 1. Collect user input
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
+        # 1. Collect user input (Handled in game loop)
 
         # 2. Move
         self._move(action)  # Update the head
@@ -128,24 +138,26 @@ class SnakeGame:
         self.display.blit(text, [0, 0])
         pygame.display.flip()
 
-    def _move(self, action):
-        # [straight, right, left]
-        clock_wise = [Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP]
-        idx = clock_wise.index(self.direction)
+    def _move(self, action=None):
+        if action is not None:
+            # [straight, right, left]
+            clock_wise = [Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP]
+            idx = clock_wise.index(self.direction)
 
-        if np.array_equal(action, [1, 0, 0]):
-            # No change
-            new_dir = clock_wise[idx]
-        elif np.array_equal(action, [0, 1, 0]):
-            # Right turn
-            next_idx = (idx + 1) % 4
-            new_dir = clock_wise[next_idx]
-        else:  # [0, 0, 1]
-            # Left turn
-            next_idx = (idx - 1) % 4
-            new_dir = clock_wise[next_idx]
+            if np.array_equal(action, [1, 0, 0]):
+                # No change
+                new_dir = clock_wise[idx]
+            elif np.array_equal(action, [0, 1, 0]):
+                # Right turn
+                next_idx = (idx + 1) % 4
+                new_dir = clock_wise[next_idx]
+            else:  # [0, 0, 1]
+                # Left turn
+                next_idx = (idx - 1) % 4
+                new_dir = clock_wise[next_idx]
 
-        self.direction = new_dir
+            self.direction = new_dir
+        # In Player mode, direction is already set by key presses
 
         x = self.head.x
         y = self.head.y
@@ -206,3 +218,101 @@ class SnakeGame:
         ]
 
         return np.array(state, dtype=int)
+
+    def run(self):
+        # Display home screen with options
+        self.display_home_screen()
+
+        # Wait for user to select mode
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    return  # Exit back to main menu
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+                        return
+                    elif event.key == pygame.K_1:
+                        self.mode = 'Player'
+                        running = False
+                    elif event.key == pygame.K_2:
+                        self.mode = 'AI'
+                        running = False
+            self.clock.tick(15)
+
+        # After selection, run the game
+        self.game_loop()
+
+    def display_home_screen(self):
+        self.display.fill(BLACK)
+        title_font = pygame.font.SysFont('Arial', 48)
+        text_font = pygame.font.SysFont('Arial', 36)
+
+        title_text = title_font.render('Snake Game', True, WHITE)
+        self.display.blit(title_text, (self.w / 2 - title_text.get_width() / 2, self.h / 4))
+
+        option1_text = text_font.render('1. Play Yourself', True, WHITE)
+        self.display.blit(option1_text, (self.w / 2 - option1_text.get_width() / 2, self.h / 2))
+
+        option2_text = text_font.render('2. Watch AI Play', True, WHITE)
+        self.display.blit(option2_text, (self.w / 2 - option2_text.get_width() / 2, self.h / 2 + 50))
+
+        instruction_text = text_font.render('Press 1 or 2 to select', True, WHITE)
+        self.display.blit(instruction_text, (self.w / 2 - instruction_text.get_width() / 2, self.h * 3 / 4))
+
+        pygame.display.flip()
+
+    def game_loop(self):
+        # If mode is AI, set up agent and model
+        if self.mode == 'AI':
+            self.agent = Agent()
+            self.model = Linear_QNet(11, 256, 3)
+            model_path = resource_path('Models/snake_model_200.pth')
+            self.model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+            self.model.eval()
+
+        # Game loop
+        self.reset()
+        self.clock = pygame.time.Clock()
+        running_game = True
+        while running_game:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running_game = False
+                    return  # Exit back to main menu
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running_game = False
+                        return
+                    if self.mode == 'Player':
+                        if event.key == pygame.K_LEFT and self.direction != Direction.RIGHT:
+                            self.direction = Direction.LEFT
+                        elif event.key == pygame.K_RIGHT and self.direction != Direction.LEFT:
+                            self.direction = Direction.RIGHT
+                        elif event.key == pygame.K_UP and self.direction != Direction.DOWN:
+                            self.direction = Direction.UP
+                        elif event.key == pygame.K_DOWN and self.direction != Direction.UP:
+                            self.direction = Direction.DOWN
+
+            if self.mode == 'AI':
+                # Get state
+                state_old = self.agent.get_state(self)
+                # Get action from model
+                state_old_tensor = torch.tensor(state_old, dtype=torch.float)
+                with torch.no_grad():
+                    prediction = self.model(state_old_tensor)
+                # Convert prediction to action
+                final_move = [0, 0, 0]
+                move = torch.argmax(prediction).item()
+                final_move[move] = 1
+                reward, done, score = self.play_step(final_move)
+            else:
+                # Player mode
+                reward, done, score = self.play_step()
+
+            if done:
+                self.reset()
+
+            self.clock.tick(20)

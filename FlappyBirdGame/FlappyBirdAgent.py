@@ -39,35 +39,33 @@ class DuelingDQN(nn.Module):
         return q
 
 class FlappyBirdAgent:
-    def __init__(self, state_size, action_size, lr=1e-3, gamma=0.99,
-                 epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=500,
-                 batch_size=64, memory_size=10000, target_update_freq=1000, alpha=0.6, beta_start=0.4, beta_frames=100000):
+    def __init__(self, state_size, action_size, device):
         self.state_size = state_size
         self.action_size = action_size
-        self.gamma = gamma
+        self.gamma = 0.99
 
-        self.epsilon = epsilon_start
-        self.epsilon_end = epsilon_end
-        self.epsilon_decay = epsilon_decay
+        self.epsilon = 1.0
+        self.epsilon_end = 0.01
+        self.epsilon_decay = 500
 
-        self.batch_size = batch_size
-        self.memory = deque(maxlen=memory_size)
-        self.target_update_freq = target_update_freq
+        self.batch_size = 64
+        self.memory = deque(maxlen=10000)
+        self.target_update_freq = 1000
         self.steps_done = 0
 
-        # PER parameters
-        self.alpha = alpha  # How much prioritization is used
-        self.beta_start = beta_start  # To anneal from initial value to 1
-        self.beta_frames = beta_frames
+        # PER parameters (if using Prioritized Experience Replay)
+        self.alpha = 0.6
+        self.beta_start = 0.4
+        self.beta_frames = 100000
         self.frame = 1
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device
         self.policy_net = DuelingDQN(state_size, action_size).to(self.device)
         self.target_net = DuelingDQN(state_size, action_size).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
 
-        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=lr)
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=1e-3)
         self.loss_fn = nn.MSELoss()
 
         # Initialize priority for new experiences
@@ -127,6 +125,9 @@ class FlappyBirdAgent:
             return None
 
         indices, experiences, weights = self.sample_memory()
+        if not experiences:
+            return None
+
         batch = Experience(*zip(*experiences))
 
         states = torch.FloatTensor(batch.state).to(self.device)
@@ -169,5 +170,5 @@ class FlappyBirdAgent:
         torch.save(self.policy_net.state_dict(), path)
 
     def load_model(self, path):
-        self.policy_net.load_state_dict(torch.load(path, map_location=self.device,weights_only=True))
+        self.policy_net.load_state_dict(torch.load(path, map_location=self.device))
         self.target_net.load_state_dict(self.policy_net.state_dict())
