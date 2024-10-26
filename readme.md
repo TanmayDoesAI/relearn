@@ -7,7 +7,7 @@ ReLearn is a project aimed at exploring and understanding how reinforcement lear
 ## **Getting Started**
 
 ### **Prerequisites**
-- Python 3.9 or higher
+- Python 3.10
 
 ---
 
